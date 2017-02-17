@@ -5,9 +5,13 @@ pubsub = Redis.new(:host => "redis")
 queue = Redis.new(:host => "redis")
 
 def process(queue)
-  data = queue.lpop "channel"
-  puts "data: #{data}"
-  sleep(3)
+  data = queue.rpop "channel"
+  if data
+    puts "data: #{data}"
+  else
+    puts "queue is empty"
+  end
+  sleep(1 + rand(5))
 end
 
 pubsub.subscribe("channel") do |on|
