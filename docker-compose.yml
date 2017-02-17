@@ -1,0 +1,10 @@
+poc:
+  build: .
+  command: foreman start
+  links:
+    - redis
+  volumes:
+    - .:/usr/src/app
+
+redis:
+  image: redis:3.2.8
