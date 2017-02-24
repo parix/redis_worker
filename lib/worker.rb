@@ -1,22 +1,39 @@
 require 'redis'
+require 'json'
 $stdout.sync = true
 
-pubsub = Redis.new(:host => "redis")
-queue = Redis.new(:host => "redis")
-
-def process(queue)
-  data = queue.rpop "channel"
-  if data
-    puts "data: #{data}"
-  else
-    puts "queue is empty"
+class Worker
+  def pubsub
+    @pubsub ||= Redis.new(:host => "redis")
   end
-  sleep(1 + rand(5))
+
+  def queue
+    @queue ||= Redis.new(:host => "redis")
+  end
+
+  def dequeue
+    if job = queue.rpop("r_model")
+      job = JSON.parse(job)
+      puts "Working on Job id: #{job["id"]} with args: #{job["args"]}"
+    end
+  end
+
+  def self.start
+    worker = self.new
+    worker.pubsub.subscribe("r_model") do |on|
+      on.message do |channel, message|
+        worker.dequeue
+      end
+    end
+  end
 end
 
-pubsub.subscribe("channel") do |on|
-  on.message do |channel, message|
-    puts "processing #{message}"
-    process(queue)
+class RModel < Worker
+  @@name = "r_model"
+
+  def process(model, data)
+    puts "Scoring #{model} with #{data}"
   end
 end
+
+RModel.start
