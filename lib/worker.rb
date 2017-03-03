@@ -5,29 +5,18 @@ $stdout.sync = true
 class Worker
   @@type = "default"
 
-  def pubsub
-    @pubsub ||= Redis.new(:host => "redis")
-  end
-
-  def queue
-    @queue ||= Redis.new(:host => "redis")
+  def redis
+    @redis ||= Redis.new(:host => "redis")
   end
 
   def start
-    pubsub.subscribe("#{@@type}_events") do |on|
-      on.message do |channel, message|
-        dequeue
-      end
-    end
-  end
-
-  def dequeue
-    if id = queue.rpop("#{@@type}_queue")
-      job = JSON.parse(queue.get(id))
+    while(true) do
+      queue, id = redis.brpop("#{@@type}_queue", :timeout => 0)
+      job = JSON.parse(redis.get(id))
       puts "Working on Job id: #{id} with args: #{job["args"]}"
       job["result"] = process(*job["args"])
       puts "Finished Job id: #{id} result: #{job["result"]}"
-      queue.set(id, JSON.dump(job))
+      redis.set(id, JSON.dump(job))
     end
   end
 
