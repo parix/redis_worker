@@ -3,7 +3,7 @@ require 'json'
 $stdout.sync = true
 
 class Worker
-  @@name = "default"
+  @@type = "default"
 
   def pubsub
     @pubsub ||= Redis.new(:host => "redis")
@@ -14,7 +14,7 @@ class Worker
   end
 
   def start
-    pubsub.subscribe("#{@@name}_events") do |on|
+    pubsub.subscribe("#{@@type}_events") do |on|
       on.message do |channel, message|
         dequeue
       end
@@ -22,12 +22,12 @@ class Worker
   end
 
   def dequeue
-    if job = queue.rpop("#{@@name}_jobs")
-      job = JSON.parse(job)
-      puts "Working on Job id: #{job["id"]} with args: #{job["args"]}"
+    if id = queue.rpop("#{@@type}_queue")
+      job = JSON.parse(queue.get(id))
+      puts "Working on Job id: #{id} with args: #{job["args"]}"
       job["result"] = process(*job["args"])
-      puts "Finished Job id: #{job["id"]} result: #{job["result"]}"
-      queue.hset("#{@@name}_results", job["id"].to_s, job.to_json)
+      puts "Finished Job id: #{id} result: #{job["result"]}"
+      queue.set(id, JSON.dump(job))
     end
   end
 
@@ -38,7 +38,7 @@ class Worker
 end
 
 class RModel < Worker
-  @@name = "r_model"
+  @@type = "r_model"
 
   def process(model, data)
     puts "Scoring #{model} with #{data}"
